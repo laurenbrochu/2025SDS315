@@ -29,7 +29,7 @@ library(knitr)
 
 ```
 
-## [GitHub Link !!]()
+## [GitHub Link !!](https://github.com/laurenbrochu/2025SDS315/blob/main/SDS315.Homework3.Rmd)
 \newpage
 
 # Problem 1 
