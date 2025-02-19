@@ -1,0 +1,273 @@
+---
+title: "Homework 3"
+author: "Lauren Brochu (leb3846) - SDS315 UT Austin"
+date: "27 January 2025"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r global_options, echo=FALSE}
+knitr::opts_chunk$set(fig.height=3, fig.width=4, warning=FALSE, tidy=TRUE, echo=FALSE, tidy.opts=list(width.cutoff=60))
+```
+
+\newpage
+```{r, message = FALSE}
+# import necessary libraries 
+library(ggplot2)
+library(mosaic)
+library(stringr)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+```
+
+# Problem 1 --- Iron Bank
+
+```{r IronBank, fig.width = 8, fig.height = 4, results = FALSE, message = FALSE}
+# initial variables
+p1TotalTrades = 2021
+p1ObsFlagged = 70
+p1ExpProb = 0.024
+simCount = 100000
+
+# find observed and expected counts to put into tibble
+p1ObsCount = c(flagged = 70, notFlagged = (p1TotalTrades-p1ObsFlagged))
+p1ExpCounts = c(flagged = (p1ExpProb * p1TotalTrades), notFlagged = ((1-p1ExpProb) * p1TotalTrades
+                                                                     ))
+tibble(observed = p1ObsCount, expected = p1ExpCounts)
+
+p1ChiStat = function(observed, expected) {
+  sum((observed - expected)^2 / expected)
+}
+
+# chi square sim
+p1ChiSim = do(simCount) * {
+  p1FlaggedSim = nflip(p1TotalTrades, p1ExpProb) 
+  p1CountsSim = c(flagged = p1FlaggedSim, notFlagged = p1TotalTrades - p1FlaggedSim)
+  p1ChiStat(p1CountsSim, p1ExpCounts)
+}
+
+# display
+ggplot(p1ChiSim) +
+  geom_histogram(aes(x=result), bins = 55, fill = "lightblue", color = "navy") +
+  labs(title = "Histogram of Simulated Chi-Squared Statistics", 
+       x = "Chi-Squared Statistic", 
+       y = "Frequency") + 
+  theme_minimal() + 
+  theme(plot.title = element_text(size = 16, face = "bold"), 
+        axis.title.x = element_text(size = 12, face = "bold"), 
+        axis.title.y = element_text(size = 12, face = "bold"))
+
+```
+
+```{r}
+# print pval result
+
+p1ChiSq = p1ChiStat(p1ObsCount, p1ExpCounts)
+p1PVal = mean(p1ChiSim >= p1ChiSq)
+p1PVal 
+```
+
+**Null Hypothesis:** The SEC's detection algorithm flags trades at a baseline rate of 2.4%, suggesting that flagged trades at Iron Bank occur at the same rate as in the general trading population.
+\newline
+\newline
+**Test Statistic:** The number of flagged trades in a sample of 2021 trades under the assumption that the null is true: 70. 
+\newline
+\newline
+**Conclusion:** Because the p-value (~ 0.002) is much smaller than 0.05, we reject the null hypothesis. This suggests that the observed number of flagged trades at Iron Bank is significantly higher than what we would expect under normal circumstances which points us to the conclusion that there are potential irregularities in inside trader behavior. 
+
+\newpage
+
+# Problem 2 --- Health Inspections 
+
+```{r HealthInspections, fig.width = 8, fig.height = 4}
+# variables given
+p2ObsCount <- c(8, 42) 
+p2TotalInspections <- sum(p2ObsCount) 
+p2ExpProps <- c(0.03, 0.97)
+p2ExpCount <- p2TotalInspections * p2ExpProps
+
+# simulation
+p2SimChiSq <- replicate(100000, {
+  # violations using sampling
+  p2simViolations <- sum(sample(c(1, 0), p2TotalInspections, replace = TRUE, prob = p2ExpProps))
+  p2simNonviolations <- p2TotalInspections - p2simViolations
+  # simulated counts
+  p2simCounts <- c(p2simViolations, p2simNonviolations)
+  # chi sq statistic
+  sum((p2simCounts - p2ExpCount)^2 / p2ExpCount)
+})
+
+# observed chi sq statistic
+p2ObsChiSq <- sum((p2ObsCount - p2ExpCount)^2 / p2ExpCount)
+
+# p-value
+p2PVal <- mean(p2SimChiSq >= p2ObsChiSq)
+
+# store data for plotting
+p2SimData <- data.frame(p2ChiSqValues = p2SimChiSq)
+
+# display
+ggplot(p2SimData, aes(x = p2ChiSqValues)) + 
+  geom_histogram(binwidth = 2, col = "navy", fill = "lightblue") + 
+  labs(
+    title = "Chi-Square Distribution Under Null Hypothesis",
+    x = "Chi-Square Test Statistic",
+    y = "Frequency") + 
+  theme_minimal() + 
+  theme(plot.title = element_text(size = 16, face = "bold"), 
+        axis.title.x = element_text(size = 12, face = "bold"), 
+        axis.title.y = element_text(size = 12, face = "bold"))
+
+cat("P-Value:", p2PVal, "\n")
+
+
+```
+
+**Null Hypothesis:** The Health Department assumes that the rate of health code violations at Gourmet Bites is the same as the citywide baseline rate of 3%. 
+\newline
+\newline
+**Test Statistic:** The number of health code violations observed in 50 inspections under the assumption that the null is true: 8. 
+\newline
+\newline
+**Conclusion:** Because the p-value (0.00007) is much smaller than 0.05, we reject the null hypothesis. This suggests that the observed number of health code violations at Gourmet Bites is significantky higher than what would be expected under normal circumstances. The Health Department is valid in orchestrating further investigations into the chain's health regulation compliance because of this strong evidence.
+
+\newpage
+
+# Problem 3 --- Evaluating Jury Selection for Bias
+
+```{r JurySelectionBias, fig.width = 8, fig.height = 4}
+# name variables
+p3ObsCount <- c(85, 56, 59, 27, 13)
+p3TotalJurors <- sum(p3ObsCount)
+p3ExpProps <- c(0.3, 0.25, 0.2, 0.15, 0.1)
+p3ExpCount <- p3TotalJurors * p3ExpProps
+
+# simulation
+p3Sim <- replicate(100000, {
+  # jury under null
+  p3SimJurors <- sample(1:5, p3TotalJurors, replace = TRUE, prob = p3ExpProps)
+  # count of jururs in each group
+  p3SimCounts <- table(factor(p3SimJurors, levels = 1:5))
+  # chi - square statistic
+  sum((p3SimCounts - p3ExpCount)^2 / p3ExpCount)})
+# observed chi stat
+p3ObsChiSq <- sum((p3ObsCount - p3ExpCount)^2 / p3ExpCount)
+
+# p-value
+p3PVal <- mean(p3Sim >= p3ObsChiSq)
+
+# data frame for graphing
+p3SimData <- data.frame(p3ChiSqValues = p3Sim)
+
+# display
+ggplot(p3SimData, aes(x = p3ChiSqValues)) +  # Correct column name here
+  geom_histogram(binwidth = 1, col = "navy", fill = "lightblue") + 
+  labs(
+    title = "Chi-Square Distribution Under Null Hypothesis",
+    x = "Chi-Square Test Statistic",
+    y = "Frequency") + 
+  theme_minimal() + 
+  theme(plot.title = element_text(size = 16, face = "bold"), 
+        axis.title.x = element_text(size = 12, face = "bold"), 
+        axis.title.y = element_text(size = 12, face = "bold"))
+
+cat("P-Value:", p3PVal, "\n")
+
+```
+
+**Null Hypothesis:** The juror selectiton process follows the county's population distribution --- any deviations are due to random chance. 
+\newline
+\newline
+**Test Statistic:** 12.426
+\newline
+\newline
+**Conclusion:** Because the p-value (0.0142) is smaller than 0.05, we reject the null hypothesis. This suggests that the jury selection process is significantly different from the expected county demographic distribution. There could be systematic bias in the way jurors are selected. Other explanations include the disqualifications and hardship excuses, geographic or economic disparities, etc. This could be investigated further by looking into jury summons response rates and selection criteria for the jury pool. 
+
+\newpage
+
+# Problem 4 --- LLM Watermarking 
+## Part A:
+
+```{r LLMWatermarkingA, fig.width = 8, fig.height = 4}
+
+# Load datasets
+p4LetterFreq <- read.csv("letter_frequencies.csv")
+p4sentences <- readLines("brown_sentences.txt")
+
+# Normalize probabilities so they sum to 1
+p4LetterFreq$Probability <- p4LetterFreq$Probability / sum(p4LetterFreq$Probability)
+
+# Function to process text and count letter frequencies
+countLetters <- function(sentence) {
+  lettersOnly <- str_to_upper(gsub("[^A-Za-z]", "", sentence))  # Remove non-letters & uppercase
+  table(factor(str_split(lettersOnly, "")[[1]], levels = LETTERS)) %>% as.numeric()
+}
+
+# Function to compute chi-square statistic for each sentence
+computeChiSq <- function(obsCounts) {
+  totalLetters <- sum(obsCounts, na.rm = TRUE)  # Total letter count in the sentence
+  expectedCounts <- totalLetters * p4LetterFreq$Probability  # Compute expected counts
+
+  sum((obsCounts - expectedCounts)^2 / expectedCounts, na.rm = TRUE)  # Compute chi-square statistic
+}
+
+# Apply functions to all sentences using sapply (instead of map_dbl)
+p4ChiSqVal <- sapply(p4sentences, function(x) computeChiSq(countLetters(x)))
+
+# Create dataframe for visualization
+p4chiDF <- tibble(ChiSQ = p4ChiSqVal)
+
+# Plot histogram of chi-square values
+ggplot(p4chiDF, aes(x = ChiSQ)) +
+  geom_histogram(bins = 50, fill = "lightblue", color = "navy") +
+  labs(title = "Brown Sentences Chi-Square Stats",
+       x = "Chi-Square Statistic",
+       y = "Frequency")
+
+```
+
+The graph displays a reference for the distribution of typical English text from a sample of normal English sentences. 
+
+\newpage
+
+## Part B:
+
+```{r LLMWaterwarkingB, fig.width = 8, fig.height = 4}
+# Define the 10 given test sentences
+p4bSentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.",
+  "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the fountain in the center.",
+  "The museum’s new exhibit features ancient artifacts from various civilizations around the world.",
+  "He carefully examined the document, looking for any clues that might help solve the mystery.",
+  "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.",
+  "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.",
+  "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing mainly on some excellent dinner recipes from Spain.",
+  "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.",
+  "The committee reviewed the proposal and provided many points of useful feedback to improve the project’s effectiveness.",
+  "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful completion, resulting in a product that exceeded everyone’s expectations."
+)
+
+# Compute chi-square values for test sentences using sapply instead of map_dbl
+testChiSqValues <- sapply(p4bSentences, function(x) computeChiSq(countLetters(x)))
+
+# Compute p-values using the null chi-square distribution from Part A
+testPValues <- sapply(testChiSqValues, function(x) mean(p4ChiSqVal >= x))
+
+# Create a dataframe with results
+p4results <- tibble(
+  Sentence = 1:10,  
+  ChiSquare = round(testChiSqValues, 3),  
+  PValue = round(testPValues, 3)
+)
+
+# Display results neatly formatted for PDF/HTML output
+kable(p4results, caption = "Chi-Square Test Results for Watermark Detection",
+      col.names = c("Sentence #", "Chi-Square Statistic", "P-Value"),
+      align = "c") %>%
+  kable_styling(full_width = FALSE, position = "center", bootstrap_options = c("striped", "hover", "condensed"))
+
+```
+
+The sentence most likely to be watermarked in sentence 6 because it has the lowest p-value. Under these circumstances, the higher the p-value, the more the letter distribution follows typical English usage, while the lower a p-value the more likely that sentence is to be configured by a LLM due to it's unnatural, yet subtle language manipulation
