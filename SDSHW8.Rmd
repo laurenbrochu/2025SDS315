@@ -1,0 +1,208 @@
+---
+title: "SDS315 HW 8"
+author: "Lauren Brochu (EID - leb3846)"
+date: "14 April 2025"
+output:
+  pdf_document:
+    toc: true
+  html_document:
+    toc: true
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(fig.height=8, fig.width= 12, warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=60), message=FALSE)
+```
+
+# [GitHub Link](https://github.com/laurenbrochu/2025SDS315/blob/main/SDSHW8.Rmd)
+
+\newpage
+
+## Problem 1: Regression Warm Up 
+
+```{r, echo = FALSE}
+
+# read in data 
+creatine <- read.csv("creatinine.csv")
+
+```
+
+```{r, echo = FALSE}
+
+# linear regression 
+creatineLR <- lm(creatclear ~ age, data = creatine)
+
+```
+
+```{r, include = FALSE}
+
+# a) clearance for 55 y/o
+predict(creatineLR, newdata = data.frame(age = 55))
+
+```
+
+The estimated clearance rate for a 55 year old is predicted to be 113.723 according to the linear regression model constructed from the _creatclear_ and _age_ variables. This means that we would expect a creatinine clearance rate of 113.72 mL/min for a 55 year old. 
+
+```{r, include = FALSE}
+
+# b) clearance rate with age 
+coef(creatineLR)
+
+```
+ 
+The slope of the regression line is of -0.62, suggesting that as age increases year by year, the creatinine clearance rate decreased by approximately 0.62 mL/min. The negative relationship of the slope coefficient confirms that kidney function generally declines with age.
+
+```{r, include = FALSE}
+
+# c) 40 vs 60 y/0 
+creatineIntercept <- 147.8129
+creatineSlope <- -0.6198159
+
+# exp value
+fortyExp <- creatineIntercept + creatineSlope * 40
+sixtyExp <- creatineIntercept + creatineSlope * 60
+
+# obs value 
+fortyObs <- 135 - fortyExp
+sixtyObs <- 112 - sixtyExp
+
+```
+ 
+When comparing health of a 40 year old with a clearance of 135 and a 60 year old with a clearance of 112, it was found that while both people were of higher clearance than expected, the former's residual was much higher, suggesting better health for their age: 
+ 
+* **40 year old with a clearance of 135**: 
+  + Expected Clearance: 123.02
+  + Residual: 11.98
+ 
+* **60 year old with a clearance of 112**: 
+  + Expected Clearance: 110.62
+  + Residual: 1.38
+
+\newpage
+
+## Problem 2: Modeling Disease Growth
+
+```{r, include = FALSE}
+
+# read in data
+covid <- read.csv("covid.csv")
+
+# load libraries 
+library(ggplot2)
+library(dplyr)
+library(mosaic)
+
+```
+
+```{r, include = FALSE}
+
+# subset italy and spain
+italy <- covid[covid$country == "Italy", ]
+spain <- covid[covid$country == "Spain", ]
+
+# linear model
+italyLM <- lm(log(deaths) ~ days_since_first_death, data = italy)
+spainLM <- lm(log(deaths) ~ days_since_first_death, data = spain)
+
+# bootstrap both countries 
+italyBoot = do(10000)*lm(log(deaths)~days_since_first_death, data = resample(italy))
+spainBoot = do(10000) * lm(log(deaths) ~ days_since_first_death, data = resample(spain))
+
+# growth rate both countries
+italyMean <- mean(italyBoot$`days_since_first_death`)
+italyGrowth <- round(italyMean, 3)
+
+spainMean <- mean(spainBoot$`days_since_first_death`)
+spainGrowth <- round(spainMean, 3)
+
+
+# doubling time both countries ( use log )
+italyDT = round(mean(log(2) / italyBoot$`days_since_first_deat`), 1)
+spainDT = round(mean(log(2) / spainBoot$`days_since_first_death`), 1) 
+
+# confidence intervals for growth
+italyGrowthCI <- confint(italyBoot, level = 0.95)
+spainGrowthCI <- confint(spainBoot, level = 0.95)
+
+# confidence intervals for doubling time 
+italyDTboot <- log(2) / italyBoot$`days_since_first_death`
+italyDT_CI <- quantile(italyDTboot, c(0.025, 0.975))
+
+spainDTboot <- log(2) / spainBoot$`days_since_first_death`
+spainDT_CI <- quantile(spainDTboot, c(0.025, 0.975))
+
+```
+
+```{r, echo = FALSE}
+
+# Plot the daily deaths
+ggplot(covid, aes(x = days_since_first_death, y = deaths, color = country)) +
+  geom_line(size = 1) +
+  labs(
+    title = "Daily COVID-19 Deaths in Italy and Spain",
+    x = "Days Since First Death",
+    y = "Reported Deaths"
+  ) +
+  theme_minimal()  + 
+  theme(
+    plot.title = element_text(face = "bold", size = 18),
+    axis.title = element_text(face = "bold", size = 14), 
+    legend.title = element_text(face = "bold", size = 14))
+
+```
+
+* **For Italy:**
+  + Estimated Growth Rate: 0.183
+  + 95% Confidence Interval for Growth Rate: (0.1587, 0.2073)
+  + Doubling Time: 3.8 days 
+  + 95% Confidence Interval for Doubling Time: (3.34, 4.37)
+ 
+* **For Spain:**
+  + Estimated Growth Rate: 0.276
+  + 95% Confidence Interval for Growth Rate: (0.2343, 0.3164)
+  + Doubling Time: 2.5 days 
+  + 95% Confidence Interval for Doubling Time: (2.19, 2.96
+
+These numbers suggest that COVID-19 deaths were increasing faster in Spain than in Italy during the early stages of the pandemic, as doubling time was shorter in Spain. The graph backs this up since Spain's line is steeper. 
+
+\newpage
+
+## Problem 3: Price Elasticity of Demand
+
+```{r, include = FALSE} 
+
+# read in data 
+milk <- read.csv("milk.csv")
+
+```
+
+```{r, include = FALSE}
+
+# log transform
+milk$logPrice <- log(milk$price)
+milk$logSales <- log(milk$sales)
+
+# linear model
+milkElasticity <- lm(logSales ~ logPrice, data = milk)
+summary(milkElasticity)
+
+# estimated elasticity 
+estElasticity <- coef(milkElasticity)[2]
+
+# bootstrap
+set.seed(42)
+B <- 1000
+bootBetas <- numeric(B)
+
+for(i in 1:B) { 
+  sampleRows <- sample(nrow(milk), replace = TRUE)
+  bootModel <- lm(logSales ~ logPrice, data = milk[sampleRows, ])
+  bootBetas[i] <- coef(bootModel)[2]}
+
+# confidence interval 
+milkCI <- quantile(bootBetas, c(0.025, 0.975))
+
+```
+
+A linear regression was needed to estimate price elasticity directly, so prior to analysis, a log transformation was applied to the _price_ and _sales_ variables. Doing so, the approximate price elasticity was about -1.62, meaning that a 1% increase in price leads to a 1.62% decrease in quantity demand. The confidence interval for this estimate is (-1.78, -1.46), proving that the estimate is statistically significant. Since the elasticity is greater than 1, we can conclude that the demand for milk is elastic and that consumers are generally responsive to changes in price. 
+
