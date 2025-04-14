@@ -14,8 +14,6 @@ output:
 knitr::opts_chunk$set(fig.height=8, fig.width= 12, warning=FALSE, tidy=TRUE, tidy.opts=list(width.cutoff=60), message=FALSE)
 ```
 
-# [GitHub Link](https://github.com/laurenbrochu/2025SDS315/blob/main/SDSHW7.Rmd)
-
 \newpage
 
 ## Problem 1: Regression Warm Up 
